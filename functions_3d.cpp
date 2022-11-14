@@ -25,6 +25,10 @@ int read_geo_kr ( char*, int*, char*, int, int );
 
 int read_geo_ZouHe ( char*, int*, int, int );
 
+// Lê uma arquivo de velocidades para inicialização
+
+void read_velocity ( string, int*, double*, double*, double, double*, double );
+
 // Calcula o produto interno
 
 double prod_int ( double*, double* );
@@ -266,6 +270,10 @@ void rec_vorticity ( int*, double*, double*, unsigned int, int, int, int );
 // Grava arquivo de recuperação
 
 void rec_recovery ( double*, double*, int, int, int );
+
+// Grava arquivo de recuperação (binário)
+
+void rec_recovery_bin ( double*, int, int );
 
 // Grava arquivo de recuperação (dois fluidos)
 
@@ -906,6 +914,69 @@ int read_geo ( char *nome_geo, int *meio, int pts_in, int pts_out )
     fmatriz.close();
 
     return poros;
+}
+
+//================================================================================================//
+
+
+
+
+//===================== Lê um arquivo de velocidades (para inicialização) ========================//
+//
+//      Input: nome do arquivo de velocidade, ponteiros para o meio e a função distribuição
+//      Output: 
+//
+//================================================================================================//
+
+void read_velocity ( string nome_vel, int *ini_meio, double *ini_f, double *ini_c, double rho_ini,
+					double *W, double one_over_c_s2 )
+{
+    int nx, ny, nz;
+    double vx, vy, vz;
+
+    ifstream fmatriz( nome_vel );
+    
+	string line, dump;
+	
+    stringstream dados;
+
+	for ( int i = 0; i < 4; i++ ) getline( fmatriz, dump );
+	
+	getline( fmatriz, line );
+
+    dados << line;    
+    
+    dados >> dump >> nx >> ny >> nz;
+    
+    for ( int i = 0; i < 4; i++ ) getline( fmatriz, dump );
+
+	dados.clear();
+
+    //--------------------------------------------------------------------------------------------//
+  
+    for ( int z = 0; z < nz; z++ )
+    {
+        for ( int y = 0; y < ny; y++ )
+        {
+            for ( int x = 0; x < nx; x++ )
+            {
+				fmatriz >> vx;
+				fmatriz >> vy;
+				fmatriz >> vz;
+					
+                int *meio = ini_meio + x + y * nx + z * ny * nx;
+
+				if ( *meio )
+				{
+					double* f = ini_f + ( *meio - 1 ) * nvel;					
+					
+					dist_eq ( vx, vy, vz, rho_ini, ini_c, f, W, one_over_c_s2 );
+				}
+            }
+        }
+    }
+
+    fmatriz.close();
 }
 
 //================================================================================================//
@@ -5075,6 +5146,33 @@ void rec_recovery ( double *ini_f, double *ini_c, int ptos_meio, int passo, int 
         f_rec << setprecision( precision ) << rho << " ";
 
     }
+
+    f_rec.close();
+
+    cout << "... ... ... !" << endl << endl;
+}
+
+//================================================================================================//
+
+
+
+
+//===================== Grava arquivo de recuperação de dados ====================================//
+//
+//      Input: distribution function, number of points, step
+//      Output:
+//
+//================================================================================================//
+
+void rec_recovery_bin ( double *ini_f, int tam_alloc, int passo )
+{
+    cout << "\nGravando arquivo de recuperação..." << endl;
+
+    ofstream f_rec ( "Arq_rec.bin", ios::binary );
+    
+    f_rec.write ( (char *) &passo, sizeof ( passo ) );
+
+	f_rec.write ( (char *) ini_f,  ( tam_alloc * sizeof ( double ) ) );  
 
     f_rec.close();
 
